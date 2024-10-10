@@ -1,0 +1,9 @@
+tensorflow
+keras
+librosa
+sounddevice
+pyaudio
+pynput
+ultralytics
+loguru
+scikit-learn

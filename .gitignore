@@ -1,0 +1,4 @@
+yolo11*.pt
+datasets/anylabeling/Screenshots
+datasets/yolo/*.cache
+*.pyc
