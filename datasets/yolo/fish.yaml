@@ -1,10 +1,9 @@
 path: yolo # dataset root dir
 train: train # train images (relative to 'path') 128 images
-val: val # val images (relative to 'path') 128 images
-test: # test images (optional)
-
+val: train
 # Classes
 names:
-    0: good
-    1: bad
-    2: float
+    0: float
+    1: good
+    2: miss
+    3: bad
