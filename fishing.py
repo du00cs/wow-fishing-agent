@@ -92,7 +92,6 @@ def effective_scope(
         else:
             random_wait(1.0, 0.1)
 
-    logger.error("图像检测出错，退出", enqueue=True)
     if capture is not None:
         capture.image.save("detect_error.jpg")
     return None
@@ -111,8 +110,6 @@ def main(
     # 接收声音识别序列
     bite_queue = Queue()
 
-    pause = [False]
-
     # 持续水花检测
     splashing = Process(
         target=detect_splashing, args=(bite_queue,), name="detect splashing"
@@ -127,6 +124,7 @@ def main(
         capture = effective_scope(suite, mouse, retry=cast_retry)
         if capture is None:
             suite.save()
+            logger.error("未检测到有效范围标识，退出", enqueue=True)
             break
 
         # 倾听水花的声音
@@ -159,8 +157,8 @@ def main(
 
         sleep(random.random() * 2 + 1)
 
-        splashing.terminate()
-        exit(0)
+    splashing.terminate()
+    exit(0)
 
 if __name__ == "__main__":
     fire.Fire(main)
