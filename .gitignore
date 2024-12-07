@@ -170,3 +170,4 @@ datasets/record/*/*/*.wav
 label-studio-workspace/*
 .idea
 /models/od/best.pt
+models/bite_model/checkpoint*

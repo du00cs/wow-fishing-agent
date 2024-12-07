@@ -25,6 +25,7 @@ torchvision = {version = "^0.20.1+cu124", source = "pytorch"}
 transformers = {extras = ["torch"], version = "^4.46.3"}
 ultralytics = "^8.2.76"
 pyaudio = "^0.2.14"
+typer = "^0.15.1"
 
 
 [[tool.poetry.source]]
