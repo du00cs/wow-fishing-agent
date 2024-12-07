@@ -1,18 +1,19 @@
 import os
 import random
 import time
+from enum import Enum
 from multiprocessing import Process, Queue
 from queue import Empty
 from time import sleep
-from typing import Any, Literal, Optional, List
+from typing import Any, Optional, List
 
-import fire
 import torchaudio
 from loguru import logger
 from pydantic import BaseModel
-from pynput.mouse import Button, Controller
+from pynput.mouse import Controller
 
 import od_predict
+from mouse import random_wait, mouse_action, MouseButton
 from od_predict import ScreenCapture
 from sound_ei.infer import stream as audio_infer_stream
 from sound_ei.loopback import default_device
@@ -70,19 +71,21 @@ class BiteSuite(BaseModel):
                 torchaudio.save(_path, self.audio_chunks[-1].chunk, sample_rate)
 
 
-def random_wait(mean: float, error: float):
-    return sleep((random.random() - 0.5) * error + mean)
+class SuiteSaveOption(str, Enum):
+    none = "none"
+    nok = "nok"
+    all = "all"
 
 
 def effective_scope(
-        suite: BiteSuite, mouse: Controller, retry: int = 20, valid_conf: float = 0.5
+        suite: BiteSuite, mouse: Controller, retry: int = 20, valid_conf: float = 0.5,
+        mouse_start: MouseButton = MouseButton.middle
 ) -> Optional[ScreenCapture]:
     """下竿，检测鱼漂和提示信息"""
     capture = None
     for i in range(retry):
-        mouse.press(Button.middle)
-        random_wait(0.1, 0.02)
-        mouse.release(Button.middle)
+        # 甩杆
+        mouse_action(mouse, mouse_start, desc="施放钓鱼技能")
         random_wait(1.5, 0.2)
         capture = od_predict.predict(grab=True)
         suite.scope_captures.append(capture)
@@ -90,7 +93,7 @@ def effective_scope(
         if capture.good > valid_conf:  # or capture.float_xyxy:
             return capture
         else:
-            random_wait(1.0, 0.1)
+            random_wait(0.5, 0.1)
 
     if capture is not None:
         capture.image.save("detect_error.jpg")
@@ -105,7 +108,8 @@ def detect_splashing(queue: Queue):
 def main(
         valid_conf: float = 0.6,
         cast_retry: int = 20,
-        save_suite: Literal["none", "nok", "all"] = "none",
+        save_suite: SuiteSaveOption = SuiteSaveOption.nok,
+        mouse_start: MouseButton = MouseButton.middle, mouse_end: MouseButton = MouseButton.scroll_down,
 ):
     # 接收声音识别序列
     bite_queue = Queue()
@@ -121,7 +125,7 @@ def main(
     while True:
         suite = BiteSuite(scope_captures=[], audio_chunks=[])
         # 甩杆至“有效交互范围”
-        capture = effective_scope(suite, mouse, retry=cast_retry)
+        capture = effective_scope(suite, mouse, retry=cast_retry, mouse_start=mouse_start)
         if capture is None:
             suite.save()
             logger.error("未检测到有效范围标识，退出", enqueue=True)
@@ -131,34 +135,39 @@ def main(
         start = time.time()
         logger.info("倾听水花的声音", enqueue=True)
         caught = False
-        while time.time() - start < 15 and not caught:
+        while time.time() - start + 1 < 15 and not caught:
             try:
                 event = bite_queue.get(block=False)
             except Empty as e:
                 time.sleep(0.1)
                 continue
-            if event["ts"] < start:  # 丢弃早于开始监听的事件
+            if event["ts"] < start + 1:  # 丢弃早于开始监听的事件
                 continue
             suite.audio_chunks.append(AudioChunk(label=event["label"], chunk=event["audio"]))
             if event["label"] == "bite":
                 logger.info("检测到事件 {} , 收竿", event["label"], enqueue=True)
                 if capture.good > valid_conf:
-                    mouse.scroll(0, -2)
+                    mouse_action(mouse, mouse_end, desc="互动（收竿）")
                 caught = True
         if caught:  # 截图，检测是在有鱼上钩，如果没有则准备一个待分析用例
             random_wait(0.9, 0.1)
             capture = od_predict.predict(grab=True)
             suite.result_capture = capture
             logger.info("bite check: {}", capture)
+        else:
+            logger.warning("未检测到水声")
 
-        if save_suite == "all" or \
-                save_suite == "nok" and (suite.result_capture is None or suite.result_capture.miss > 0.5):
-            suite.save(full=True if save_suite == "all" else False)
+        if save_suite == SuiteSaveOption.all or \
+                save_suite == SuiteSaveOption.nok and not caught:
+            suite.save(full=True if save_suite == SuiteSaveOption.all else False)
 
         sleep(random.random() * 2 + 1)
 
     splashing.terminate()
     exit(0)
 
+
 if __name__ == "__main__":
-    fire.Fire(main)
+    import typer
+
+    typer.run(main)

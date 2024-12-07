@@ -3,35 +3,16 @@ import time
 from multiprocessing import Process, Queue
 from queue import Empty
 from time import sleep
-from typing import Literal
 
-import fire
 from loguru import logger
-from pynput.mouse import Button, Controller as Mouse
+from pynput.mouse import Controller as Mouse
 
-from fishing import detect_splashing, BiteSuite, random_wait, AudioChunk
-
-
-def mouse_action(mouse: Mouse, button: Button):
-    match button:
-        case Button.left | Button.middle | Button.right:
-            mouse.press(button)
-            random_wait(0.1, 0.02)
-            mouse.release(button)
-        case Button.scroll_up:
-            mouse.scroll(0, 2)
-        case Button.scroll_down:
-            mouse.scroll(0, -2)
-        case _:
-            logger.warning("unknown mouse button: {}", button)
+from fishing import detect_splashing, BiteSuite, AudioChunk, SuiteSaveOption
+from mouse import MouseButton, mouse_action
 
 
-LIMITED_MOUSE_ACTIONS = Literal[Button.left, Button.middle, Button.right, Button.scroll_up, Button.scroll_down]
-
-
-def main(save_suite: Literal["none", "nok", "all"] = "nok",
-         mouse_start: LIMITED_MOUSE_ACTIONS = Button.middle,
-         mouse_end: LIMITED_MOUSE_ACTIONS = Button.scroll_down):
+def main(mouse_start: MouseButton = MouseButton.middle, mouse_end: MouseButton = MouseButton.scroll_down,
+         save_suite: SuiteSaveOption = SuiteSaveOption.none):
     # 接收声音识别序列
     bite_queue = Queue()
 
@@ -44,9 +25,9 @@ def main(save_suite: Literal["none", "nok", "all"] = "nok",
     mouse = Mouse()
 
     while True:
-        suite = BiteSuite(audio_chunks=[])
+        suite = BiteSuite(scope_captures=[], audio_chunks=[])
         # 甩杆
-        mouse_action(mouse, mouse_start)
+        mouse_action(mouse, mouse_start, desc="施放钓鱼技能")
 
         # 倾听水花的声音
         start = time.time()
@@ -58,17 +39,18 @@ def main(save_suite: Literal["none", "nok", "all"] = "nok",
             except Empty as e:
                 time.sleep(0.1)
                 continue
-            if event["ts"] < start:  # 丢弃早于开始监听的事件
+            if event["ts"] < start + 1:  # 丢弃早于开始监听的事件
                 continue
             suite.audio_chunks.append(AudioChunk(label=event["label"], chunk=event["audio"]))
             if event["label"] == "bite":
                 logger.info("检测到事件 {} , 收竿", event["label"], enqueue=True)
-                mouse_action(mouse, mouse_end)
+                mouse_action(mouse, mouse_end, desc="互动（收竿）")
                 caught = True
-
-        if save_suite == "all" or \
-                save_suite == "nok" and not caught:
-            suite.save(full=True if save_suite == "all" else False)
+        if not caught:
+            logger.warning("未检测到水声")
+        if save_suite == SuiteSaveOption.all or \
+                save_suite == SuiteSaveOption.nok and not caught:
+            suite.save(full=True if save_suite == SuiteSaveOption.all else False)
 
         sleep(random.random() * 2 + 1)
 
@@ -77,4 +59,6 @@ def main(save_suite: Literal["none", "nok", "all"] = "nok",
 
 
 if __name__ == "__main__":
-    fire.Fire(main)
+    import typer
+
+    typer.run(main)
