@@ -37,7 +37,7 @@ class BiteDateset(Dataset):
                 )
 
                 self.examples.append((features['input_values'][0][0, :], int(m.group(1)), file))
-        logger.info("load {} examples in {}", len(self.examples), time.time() - ts)
+        logger.info("load {} examples in {:.2f}s", len(self.examples), time.time() - ts)
 
     def __len__(self):
         return len(self.examples)

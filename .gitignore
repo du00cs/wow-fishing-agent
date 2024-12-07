@@ -164,3 +164,9 @@ cython_debug/
 yolo11*.pt
 datasets/anylabeling/Screenshots
 datasets/yolo/*.cache
+datasets/yolo/train
+datasets/record/*/*/*.wav
+
+label-studio-workspace/*
+.idea
+/models/od/best.pt
