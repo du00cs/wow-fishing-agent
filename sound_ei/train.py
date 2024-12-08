@@ -19,7 +19,6 @@ model = AutoModelForAudioClassification.from_pretrained(
     num_labels=2,
     label2id={'other': 0, 'bite': 1},
     id2label={0: 'other', 1: 'bite'},
-    local_files_only=True
 )
 
 training_args = TrainingArguments(

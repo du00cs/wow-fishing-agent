@@ -165,8 +165,7 @@ yolo11*.pt
 datasets/anylabeling/Screenshots
 datasets/yolo/*.cache
 datasets/yolo/train
-datasets/record/*/*/*.wav
-
+datasets/record/
 label-studio-workspace/*
 .idea
 /models/od/best.pt

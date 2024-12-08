@@ -8,7 +8,7 @@ from loguru import logger
 from pynput.mouse import Controller as Mouse
 
 from fishing import detect_splashing, BiteSuite, AudioChunk, SuiteSaveOption
-from mouse import MouseButton, mouse_action
+from keyboard_mouse import MouseButton, mouse_action
 
 
 def main(mouse_start: MouseButton = MouseButton.middle, mouse_end: MouseButton = MouseButton.scroll_down,

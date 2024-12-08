@@ -10,10 +10,11 @@ from typing import Any, Optional, List
 import torchaudio
 from loguru import logger
 from pydantic import BaseModel
-from pynput.mouse import Controller
+from pynput import keyboard
+from pynput.mouse import Controller as MouseController
 
 import od_predict
-from mouse import random_wait, mouse_action, MouseButton
+from keyboard_mouse import random_wait, mouse_action, MouseButton, keyboard_listener
 from od_predict import ScreenCapture
 from sound_ei.infer import stream as audio_infer_stream
 from sound_ei.loopback import default_device
@@ -78,7 +79,7 @@ class SuiteSaveOption(str, Enum):
 
 
 def effective_scope(
-        suite: BiteSuite, mouse: Controller, retry: int = 20, valid_conf: float = 0.5,
+        suite: BiteSuite, mouse: MouseController, retry: int = 20, valid_conf: float = 0.5,
         mouse_start: MouseButton = MouseButton.middle
 ) -> Optional[ScreenCapture]:
     """下竿，检测鱼漂和提示信息"""
@@ -105,11 +106,57 @@ def detect_splashing(queue: Queue):
         queue.put({"ts": t, "label": label, "audio": audio})
 
 
+def task(mouse: MouseController, cast_retry: int, valid_conf: float, mouse_start: MouseButton, mouse_end: MouseButton,
+         bite_queue: Queue, save_suite: SuiteSaveOption):
+    suite = BiteSuite(scope_captures=[], audio_chunks=[])
+    # 甩杆至“有效交互范围”
+    capture = effective_scope(suite, mouse, retry=cast_retry, mouse_start=mouse_start)
+    if capture is None:
+        suite.save()
+        logger.error("未检测到有效范围标识，退出", enqueue=True)
+        exit(-1)
+
+    # 倾听水花的声音
+    start = time.time()
+    logger.info("倾听水花的声音", enqueue=True)
+    caught = False
+    while time.time() - start + 1 < 15 and not caught:
+        try:
+            event = bite_queue.get(block=False)
+        except Empty as e:
+            time.sleep(0.1)
+            continue
+        if event["ts"] < start + 1:  # 丢弃早于开始监听的事件
+            continue
+        suite.audio_chunks.append(AudioChunk(label=event["label"], chunk=event["audio"]))
+        if event["label"] == "bite":
+            logger.info("检测到事件 {} , 收竿", event["label"], enqueue=True)
+            if capture.good > valid_conf:
+                mouse_action(mouse, mouse_end, desc="互动（收竿）")
+            caught = True
+    if caught:  # 截图，检测是在有鱼上钩，如果没有则准备一个待分析用例
+        random_wait(0.9, 0.1)
+        capture = od_predict.predict(grab=True)
+        suite.result_capture = capture
+        if capture.miss > 0.5:
+            logger.info("")
+            caught = False
+        else:
+            logger.info("bite check: {}", capture)
+    else:
+        logger.warning("未检测到水声")
+
+    if save_suite == SuiteSaveOption.all or \
+            save_suite == SuiteSaveOption.nok and not caught:
+        suite.save(full=True if save_suite == SuiteSaveOption.all else False)
+
+
 def main(
         valid_conf: float = 0.6,
         cast_retry: int = 20,
         save_suite: SuiteSaveOption = SuiteSaveOption.nok,
         mouse_start: MouseButton = MouseButton.middle, mouse_end: MouseButton = MouseButton.scroll_down,
+        pause_key: Optional[str] = 'f12'
 ):
     # 接收声音识别序列
     bite_queue = Queue()
@@ -120,48 +167,23 @@ def main(
     )
     splashing.start()
 
-    mouse = Controller()
+    # 暂停检测
+    status = [True]
+    if pause_key:
+        keyboard_listener(keyboard.Key[pause_key], status)
+
+    mouse = MouseController()
 
     while True:
-        suite = BiteSuite(scope_captures=[], audio_chunks=[])
-        # 甩杆至“有效交互范围”
-        capture = effective_scope(suite, mouse, retry=cast_retry, mouse_start=mouse_start)
-        if capture is None:
-            suite.save()
-            logger.error("未检测到有效范围标识，退出", enqueue=True)
-            break
-
-        # 倾听水花的声音
-        start = time.time()
-        logger.info("倾听水花的声音", enqueue=True)
-        caught = False
-        while time.time() - start + 1 < 15 and not caught:
+        if status[0]:
+            task(mouse, cast_retry=cast_retry, valid_conf=valid_conf, mouse_start=mouse_start, mouse_end=mouse_end, bite_queue=bite_queue, save_suite=save_suite)
+            sleep(random.random() * 2 + 1)
+        else:
             try:
                 event = bite_queue.get(block=False)
             except Empty as e:
                 time.sleep(0.1)
                 continue
-            if event["ts"] < start + 1:  # 丢弃早于开始监听的事件
-                continue
-            suite.audio_chunks.append(AudioChunk(label=event["label"], chunk=event["audio"]))
-            if event["label"] == "bite":
-                logger.info("检测到事件 {} , 收竿", event["label"], enqueue=True)
-                if capture.good > valid_conf:
-                    mouse_action(mouse, mouse_end, desc="互动（收竿）")
-                caught = True
-        if caught:  # 截图，检测是在有鱼上钩，如果没有则准备一个待分析用例
-            random_wait(0.9, 0.1)
-            capture = od_predict.predict(grab=True)
-            suite.result_capture = capture
-            logger.info("bite check: {}", capture)
-        else:
-            logger.warning("未检测到水声")
-
-        if save_suite == SuiteSaveOption.all or \
-                save_suite == SuiteSaveOption.nok and not caught:
-            suite.save(full=True if save_suite == SuiteSaveOption.all else False)
-
-        sleep(random.random() * 2 + 1)
 
     splashing.terminate()
     exit(0)
