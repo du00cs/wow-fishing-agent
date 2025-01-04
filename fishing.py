@@ -4,7 +4,6 @@ import time
 from enum import Enum
 from typing import Optional, List, Any
 
-import torch
 import torchaudio
 from loguru import logger
 from pydantic import BaseModel
