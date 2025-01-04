@@ -26,6 +26,17 @@ default_device = get_default_loopback_device()
 
 
 def loopback_stream(*, device: AudioDevice, chunk_seconds: float = 1.0):
+    """
+    Create and return an audio stream for loopback recording.
+
+    Args:
+        device (AudioDevice): The audio device to use for recording.
+        chunk_seconds (float, optional): The duration of each audio chunk in seconds. Defaults to 1.0.
+
+    Returns:
+        PyAudio.Stream: The audio stream object for recording.
+    """
+    # Initialize the PyAudio object
     audio = pyaudio.PyAudio()
 
     chunk = int(chunk_seconds * device.sample_rate)

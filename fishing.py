@@ -20,7 +20,7 @@ from sound_ei.loopback import default_device
 
 class BiteSuite(BaseModel):
     scope_captures: List[ScreenCapture]  # 有效范围检测
-    audio_chunks: Optional[Any] = None  # 声音检测
+    audio_chunks: Optional[Any] = None  # 16秒的 audio tensor
     result_capture: Optional[ScreenCapture] = None  # 结果校验 (对应点击过早的情况)
 
     def save(
@@ -71,11 +71,11 @@ def effective_scope(
     capture = None
     for i in range(retry):
         # 甩杆
-        mouse_action(mouse, mouse_start, desc="cast fishing")
+        mouse_action(mouse, mouse_start, desc="🆕 cast fishing")
         random_wait(1.5, 0.2)
         capture = od_predict.predict(grab=True)
         suite.scope_captures.append(capture)
-        logger.info("cast fishing, detect valid scope [{}]: {}", i + 1, capture)
+        logger.info("🎣 cast fishing, detect valid scope [{}]: {}", i + 1, capture)
         if capture.good > valid_conf:  # or capture.float_xyxy:
             return capture
         else:
@@ -94,10 +94,10 @@ def task(mouse: MouseController, cast_retry: int, valid_conf: float, mouse_start
     capture = effective_scope(suite, mouse, retry=cast_retry, mouse_start=mouse_start, valid_conf=valid_conf)
     if capture is None:
         suite.save()
-        logger.error("no valid scope detected", enqueue=True)
+        logger.error("🔴 no valid scope detected", enqueue=True)
         return 'pause'
 
-    logger.info("listen for water splash", enqueue=True)
+    logger.info("🎤 listen for water splash", enqueue=True)
 
     pred, audio_tensor = stream(window=window, maxlen=listen_seconds)
 
@@ -105,17 +105,17 @@ def task(mouse: MouseController, cast_retry: int, valid_conf: float, mouse_start
     suite.audio_chunks = audio_tensor
 
     if pred == "bite":
-        logger.info("event bite detected, finish", pred, enqueue=True)
+        logger.info("🐟 event bite detected, finish", pred, enqueue=True)
         mouse_action(mouse, mouse_end, desc="interaction click")
         # 截图，检测是在有鱼上钩，如果没有则准备一个待分析用例
         random_wait(0.9, 0.1)
         capture = od_predict.predict(grab=True)
         suite.result_capture = capture
         if capture.miss > 0.5:
-            logger.warning("bite check: wrong bite")
+            logger.warning("🐟❌ bite check: wrong bite (too early!)")
             caught = False
     else:
-        logger.warning("no splash detected")
+        logger.warning("🐟❌ no splash detected")
 
     if save_suite == SuiteSaveOption.all or \
             save_suite == SuiteSaveOption.nok and not caught:
@@ -136,7 +136,7 @@ def main(
     status = [False]
     if pause_key:
         keyboard_listener(keyboard.Key[pause_key], status)
-    logger.warning("pause: wait for trigger")
+    logger.warning("⏸️ pause: wait for trigger")
 
     mouse = MouseController()
 

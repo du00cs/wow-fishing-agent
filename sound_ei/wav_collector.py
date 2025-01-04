@@ -1,4 +1,4 @@
-"""采集数据"""
+"""监听钓鱼动作，捕捉音频，从而获取到标注"""
 import datetime
 import os
 import time
@@ -43,6 +43,16 @@ class MouseEvent:
 
 
 def background(scene: str, seconds: int = 60, device: AudioDevice = loopback.default_device, channels=2):
+    """
+    Record a background audio sample for a specified duration and save it to a file.
+
+    Args:
+        scene (str): 场景名称，比如达拉然水池，下水道，会直接作为负样本
+        seconds (int, optional): The duration of the audio sample in seconds. Defaults to 60.
+        device (AudioDevice, optional): The audio device to use for recording. Defaults to the default device.
+        channels (int, optional): The number of audio channels. Defaults to 2.
+    """
+    # Calculate the number of samples to read from the stream
     chunk = int(seconds * device.sample_rate)
 
     with loopback.loopback_stream(device=device, chunk_seconds=seconds) as stream:
@@ -63,6 +73,16 @@ def background(scene: str, seconds: int = 60, device: AudioDevice = loopback.def
 
 
 def manual(scene: str, device: AudioDevice = loopback.default_device, seconds=1.0, channels=2):
+    """
+    跟随人工钓鱼的过程，录制音频，将点击的时间点作为正样本，其它时间点作为负样本
+
+    Args:
+        scene (str): 场景名称，比如达拉然水池，下水道，方便分类
+        device (AudioDevice, optional): The audio device to use for recording. Defaults to the default device.
+        seconds (float, optional): 样本的粒度
+        channels (int, optional): The number of audio channels. Defaults to 2.
+    """
+    # Calculate the number of samples to read from the stream
     chunk = int(seconds * device.sample_rate)
 
     status = ['stop']

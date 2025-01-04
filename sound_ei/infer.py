@@ -123,6 +123,15 @@ def bite_as_negative(
 def miss_bite_predict(model_path: str = get_best_checkpoint(),
                       glob_pattern: str = "datasets/miss-bite/*.ogg",
                       window: int = 3):
+    """
+    对于采集到的miss音频进行重新预测
+
+    Args:
+        model_path (str, optional): Path to the model checkpoint. Defaults to the best checkpoint.
+        glob_pattern (str, optional): Glob pattern to match audio files. Defaults to "datasets/miss-bite/*.ogg".
+        window (int, optional): Window size for audio inference. Defaults to 3.
+    """
+    # Load the model from the specified checkpoint
     model = load_model(model_path)
     files = glob.glob(glob_pattern)
     for file in files:
