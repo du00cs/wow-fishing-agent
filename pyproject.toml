@@ -8,7 +8,6 @@ readme = "README.md"
 [tool.poetry.dependencies]
 evaluate = "^0.4.3"
 fire = "^0.7.0"
-ipykernel = "^6.29.5"
 loguru = "^0.7.2"
 pandas = "^2.2.3"
 pillow = "^11.0.0"
@@ -18,7 +17,6 @@ pynput = "^1.7.7"
 python = "^3.10"
 pyyaml = "^6.0.2"
 scikit-learn = "^1.5.2"
-soundfile = "^0.12.1"
 torch = {version = "^2.5.1+cu124", source = "pytorch"}
 torchaudio = {version = "^2.5.1+cu124", source = "pytorch"}
 torchvision = {version = "^0.20.1+cu124", source = "pytorch"}
@@ -26,7 +24,6 @@ transformers = {extras = ["torch"], version = "^4.46.3"}
 ultralytics = "^8.2.76"
 pyaudio = "^0.2.14"
 typer = "^0.15.1"
-
 
 [[tool.poetry.source]]
 name = "mirrors"
@@ -42,3 +39,7 @@ priority = "supplemental"
 [build-system]
 requires = ["poetry-core"]
 build-backend = "poetry.core.masonry.api"
+
+[tool.poetry.scripts]
+bite-train = "python -m sound_ei.train"
+fishing = "python -m fishing"
