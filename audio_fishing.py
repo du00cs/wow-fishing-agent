@@ -12,13 +12,13 @@ from keyboard_mouse import MouseButton, mouse_action
 
 
 def main(mouse_start: MouseButton = MouseButton.middle, mouse_end: MouseButton = MouseButton.scroll_down,
-         save_suite: SuiteSaveOption = SuiteSaveOption.none):
+         save_suite: SuiteSaveOption = SuiteSaveOption.none, window: int = 3):
     # 接收声音识别序列
     bite_queue = Queue()
 
     # 持续水花检测
     splashing = Process(
-        target=detect_splashing, args=(bite_queue,), name="detect splashing"
+        target=detect_splashing, args=(bite_queue, window), name="detect splashing"
     )
     splashing.start()
 
@@ -33,13 +33,13 @@ def main(mouse_start: MouseButton = MouseButton.middle, mouse_end: MouseButton =
         start = time.time()
         logger.info("倾听水花的声音", enqueue=True)
         caught = False
-        while time.time() - start < 15 and not caught:
+        while time.time() - start < 16 and not caught:
             try:
                 event = bite_queue.get(block=False)
             except Empty as e:
                 time.sleep(0.1)
                 continue
-            if event["ts"] < start + 1:  # 丢弃早于开始监听的事件
+            if event["ts"] < start + window - 1:  # 丢弃早于开始监听的事件
                 continue
             suite.audio_chunks.append(AudioChunk(label=event["label"], chunk=event["audio"]))
             if event["label"] == "bite":

@@ -25,10 +25,10 @@ def get_default_loopback_device() -> AudioDevice:
 default_device = get_default_loopback_device()
 
 
-def loopback_stream(*, device: AudioDevice, seconds: float = 1.0):
+def loopback_stream(*, device: AudioDevice, chunk_seconds: float = 1.0):
     audio = pyaudio.PyAudio()
 
-    chunk = int(seconds * device.sample_rate)
+    chunk = int(chunk_seconds * device.sample_rate)
 
     return audio.open(
         format=pyaudio.paFloat32,

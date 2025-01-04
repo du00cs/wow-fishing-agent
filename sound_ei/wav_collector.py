@@ -1,94 +1,109 @@
 """采集数据"""
-
+import datetime
 import os
 import time
-from multiprocessing import Queue
+from typing import List
 
 import fire
 import numpy as np
-import pyaudiowpatch as pyaudio
 import torch
 import torchaudio
 from loguru import logger
 from pynput import mouse
 
 from sound_ei import loopback
-import shutil
-
 from sound_ei.loopback import AudioDevice
 
 
 class MouseEvent:
-    queue: Queue
+    start: mouse.Button
+    stop: mouse.Button
+    status: List[str]
 
-    def __init__(self, queue: Queue):
-        self.queue = queue
+    def __init__(self, status: List[str],
+                 start: mouse.Button = mouse.Button.middle, stop: mouse.Button = mouse.Button.right):
+        self.stop = stop
+        self.start = start
+        self.status = status
 
     def on_click(self, x, y, button, pressed):
         if pressed:
             match button:
-                case mouse.Button.middle:
-                    s = f"start|{int(time.time())}"
-                    self.queue.put(s)
-                    logger.info("Pressed {}: {}", button, s)
-                case mouse.Button.right:
+                case self.start:
+                    self.status[0] = f'start|{int(time.time())}'
+                    logger.info("Pressed {}: start", button)
+                case self.stop:
+                    self.status[0] = 'stop'
                     logger.info("Pressed {}: stop", button)
-                    self.queue.put("stop")
 
     def on_scroll(self, x, y, dx, dy):
         if dy < 0:  # scroll down
+            self.status[0] = 'stop'
             logger.info("Scrolled down: stop")
-            self.queue.put("stop")
 
 
-def examples(device: AudioDevice = loopback.default_device, seconds=1.0, channels=2):
+def background(scene: str, seconds: int = 60, device: AudioDevice = loopback.default_device, channels=2):
     chunk = int(seconds * device.sample_rate)
 
-    queue = Queue()
+    with loopback.loopback_stream(device=device, chunk_seconds=seconds) as stream:
+        logger.info("recording ...")
 
-    event = MouseEvent(queue)
+        wave = np.frombuffer(stream.read(chunk), dtype=np.float32).reshape((-1, channels)).transpose()  # 2 x frame
+
+        ts = datetime.datetime.now().strftime("%y%m%d-%H%M%S")
+        base_dir = f"datasets/record/{scene}"
+        os.makedirs(base_dir, exist_ok=True)
+        filename = f"{base_dir}/{ts}_{seconds}_bg.ogg"
+        torchaudio.save(
+            uri=filename,
+            src=torch.from_numpy(wave),
+            sample_rate=device.sample_rate,
+        )
+        logger.info("save background example {}", filename)
+
+
+def manual(scene: str, device: AudioDevice = loopback.default_device, seconds=1.0, channels=2):
+    chunk = int(seconds * device.sample_rate)
+
+    status = ['stop']
+    event = MouseEvent(status)
 
     # listen in thread
     listener = mouse.Listener(on_click=event.on_click, on_scroll=event.on_scroll)
     listener.start()
 
-    with loopback.loopback_stream(device=device, seconds=seconds) as stream:
-        i = -1
+    with loopback.loopback_stream(device=device, chunk_seconds=seconds) as stream:
+        waves = []
         logger.info("recording ...")
+        last_start = None
         while True:
-            wave = (
-                np.frombuffer(stream.read(chunk), dtype=np.float32)
-                .reshape((-1, 2))
-                .transpose()
-            )
-            try:
-                instruct = queue.get(block=False)
-            except:
-                instruct = ""
-            if instruct.startswith("start|"):
-                folder = "datasets/record/unchecked/" + instruct[len("start|") :]
-                os.makedirs(folder, exist_ok=True)
-                i = 0
-
-            if i >= 0:
-                if i <= 3 and instruct == "stop":
-                    logger.info("skip this too short case")
-                    shutil.rmtree(folder)
+            wave = np.frombuffer(stream.read(chunk), dtype=np.float32).reshape((-1, channels)).transpose()  # 2 x frame
+            if status[0].startswith('start'):
+                if last_start != status[0]:
+                    logger.info("restart a new record")
+                    last_start = status[0]
+                    waves = [wave]
+                elif len(waves) == 0:
+                    waves = [wave]
                 else:
-                    label = 1 if instruct == "stop" else 0
-                    filename = f"{folder}/{i:02d}_{label}.wav"
+                    waves.append(wave)
+            elif waves:
+                if len(waves) <= 17:
+                    merged = np.concat(waves, axis=1)
+                    ts = datetime.datetime.now().strftime("%y%m%d-%H%M%S")
+                    base_dir = f"datasets/record/{scene}"
+                    os.makedirs(base_dir, exist_ok=True)
+                    filename = f"{base_dir}/{ts}_{len(waves)}.ogg"
                     torchaudio.save(
                         uri=filename,
-                        src=torch.from_numpy(wave),
+                        src=torch.from_numpy(merged),
                         sample_rate=device.sample_rate,
                     )
-
-            i = -1 if instruct == "stop" or i == -1 else i + 1
-
-            if i == 17:
-                i = -1
-                logger.warning("instruct timeout")
+                    logger.info("save example {}", filename)
+                else:
+                    logger.warning("instruct timeout")
+                waves = []
 
 
 if __name__ == "__main__":
-    fire.Fire(examples)
+    fire.Fire()

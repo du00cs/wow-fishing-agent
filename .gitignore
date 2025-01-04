@@ -170,3 +170,4 @@ label-studio-workspace/*
 .idea
 /models/od/best.pt
 models/bite_model/checkpoint*
+/label-studio-workspace/
