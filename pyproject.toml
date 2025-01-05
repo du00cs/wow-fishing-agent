@@ -1,45 +1,49 @@
-[tool.poetry]
-name = "wow-fisher"
+[project]
+name = "wow-fishing-agent"
 version = "0.1.0"
-description = ""
-authors = ["Ninglin Du <du00cs@outlook.com>"]
+description = "Automatic fishing agent for World of Warcraft"
+authors = [
+    {name = "Ninglin Du", email = "du00cs@outlook.com"},
+]
+
+requires-python = "==3.11.*"
 readme = "README.md"
+license = {text = "MIT"}
+dependencies = [
+    "pyaudiowpatch>=0.2.12.6; sys_platform == 'win32'", # loopback音频读取
+    "ultralytics>=8.3.57", # YOLO 目标检测
+    "pynput>=1.7.7", # 键鼠监听
+    "pillow>=11.1.0", # 截图
+    "scikit-learn>=1.6.0", 
+    "pyyaml>=6.0.2", 
+    "pydantic>=2.10.4",
+    "loguru>=0.7.3", 
+    "typer>=0.15.1", 
+    "fire>=0.7.0", 
+    "evaluate>=0.4.3",
+    "torch>=2.5.1+cu124",
+    "torchvision>=0.20.1+cu124",
+    "torchaudio>=2.5.1+cu124",
+    "transformers[torch]>=4.47.1",
+    "pip>=24.3.1",
+]
 
-[tool.poetry.dependencies]
-evaluate = "^0.4.3"
-fire = "^0.7.0"
-loguru = "^0.7.2"
-pandas = "^2.2.3"
-pillow = "^11.0.0"
-pyaudiowpatch = "^0.2.12.6"
-pydantic = "^2.9.2"
-pynput = "^1.7.7"
-python = "^3.10"
-pyyaml = "^6.0.2"
-scikit-learn = "^1.5.2"
-torch = {version = "^2.5.1+cu124", source = "pytorch"}
-torchaudio = {version = "^2.5.1+cu124", source = "pytorch"}
-torchvision = {version = "^0.20.1+cu124", source = "pytorch"}
-transformers = {extras = ["torch"], version = "^4.46.3"}
-ultralytics = "^8.2.76"
-pyaudio = "^0.2.14"
-typer = "^0.15.1"
+[tool.pdm]
+distribution = false
 
-[[tool.poetry.source]]
-name = "mirrors"
-url = "https://mirrors.tuna.tsinghua.edu.cn/pypi/web/simple/"
-priority = "primary"
-
-
-[[tool.poetry.source]]
+[[tool.pdm.source]]
 name = "pytorch"
 url = "https://download.pytorch.org/whl/cu124"
-priority = "supplemental"
+include_packages = ["torch", "torchvision", "torchaudio"]
+exclude_packages = ["*"]
 
-[build-system]
-requires = ["poetry-core"]
-build-backend = "poetry.core.masonry.api"
+[[tool.pdm.source]]
+name = "aliyun"
+url = "https://mirrors.tuna.tsinghua.edu.cn/pypi/web/simple"
+verify_ssl = true
+include_packages = ["*"]
+exclude_packages = ["torch", "torchvision", "torchaudio"]
 
-[tool.poetry.scripts]
-bite-train = "python -m sound_ei.train"
+[tool.pdm.scripts]
+train_splash = "python -m sound_ei.train"
 fishing = "python -m fishing"

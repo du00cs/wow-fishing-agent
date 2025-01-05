@@ -13,7 +13,7 @@ from pynput.mouse import Controller as MouseController
 import od_predict
 from keyboard_mouse import random_wait, mouse_action, MouseButton, keyboard_listener
 from od_predict import ScreenCapture
-from sound_ei.infer import stream
+import sound_ei.infer as sound_infer
 from sound_ei.loopback import default_device
 
 
@@ -86,7 +86,7 @@ def effective_scope(
 
 
 def task(mouse: MouseController, cast_retry: int, valid_conf: float, mouse_start: MouseButton, mouse_end: MouseButton,
-         listen_seconds: int, window: int,
+         sound_model, listen_seconds: int, window: int,
          save_suite: SuiteSaveOption):
     suite = BiteSuite(scope_captures=[], audio_chunks=[])
     # 甩杆至“有效交互范围”
@@ -98,7 +98,7 @@ def task(mouse: MouseController, cast_retry: int, valid_conf: float, mouse_start
 
     logger.info("🎤 listen for water splash", enqueue=True)
 
-    pred, audio_tensor = stream(window=window, maxlen=listen_seconds)
+    pred, audio_tensor = sound_infer.stream(sound_model, window=window, maxlen=listen_seconds)
 
     caught = True if pred == "bite" else False
     suite.audio_chunks = audio_tensor
@@ -138,12 +138,13 @@ def main(
     logger.warning("⏸️ pause: wait for trigger")
 
     mouse = MouseController()
+    sound_model = sound_infer.load_model(sound_infer.get_best_checkpoint())
 
     while True:
         if status[0]:
             result = task(mouse, cast_retry=cast_retry, mouse_start=mouse_start, mouse_end=mouse_end,  # 鼠标
                           valid_conf=valid_conf,  # 图像
-                          listen_seconds=listen_seconds, window=window,  # 声音
+                          sound_model = sound_model, listen_seconds=listen_seconds, window=window,  # 声音
                           save_suite=save_suite)
             if result == 'pause':
                 status[0] = False
