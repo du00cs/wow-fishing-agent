@@ -48,16 +48,17 @@
 
 不展开
 ```bash
-# 准备好poetry
+# 准备好 pdm
 
-poetry install
+pdm sync
 ```
 
 # 2. 使用说明
 
 启动命令
 ```bash
-python -m fishing
+pdm run fishing
+# python -m fishing
 ```
 
 F12 开始/暂停

@@ -1,24 +1,20 @@
 import glob
 import os
-import re
+import shutil
 import time
 from typing import Optional
 
 import fire
 import numpy as np
-import pyaudio
 import torch
 import torchaudio
 import torchaudio.functional as F
-from numpy import ndarray, dtype, float64
+from loguru import logger
 from transformers import AutoModelForAudioClassification
 
 from sound_ei import loopback
 from sound_ei.dataset_bite import feature_extractor
 from sound_ei.loopback import loopback_stream, AudioDevice
-from loguru import logger
-
-import shutil
 
 sound_checkpoint = None
 
@@ -70,8 +66,8 @@ def load_model(ckpt: str, device: str = 'cuda:0'):
 
 
 def stream(
+        model: torch.nn.Module,
         audio_device: AudioDevice = loopback.default_device,
-        ckpt: str = get_best_checkpoint(),
         window: int = 3,
         step: int = 1,
         maxlen: int = 16,
@@ -81,7 +77,6 @@ def stream(
     with loopback_stream(device=audio_device, chunk_seconds=1) as stream:
 
         chunk = int(step * audio_device.sample_rate)
-        model = load_model(ckpt, device=device)
 
         buffer = torch.zeros([channels, maxlen * chunk], dtype=torch.float32, device=device)
 
