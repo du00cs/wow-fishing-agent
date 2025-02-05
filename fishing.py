@@ -21,6 +21,7 @@ class BiteSuite(BaseModel):
     scope_captures: List[ScreenCapture]  # 有效范围检测
     audio_chunks: Optional[Any] = None  # 16秒的 audio tensor
     result_capture: Optional[ScreenCapture] = None  # 结果校验 (对应点击过早的情况)
+    seconds: Optional[int] = None
 
     def save(
             self,
@@ -29,7 +30,7 @@ class BiteSuite(BaseModel):
             sample_rate: int = default_device.sample_rate,
     ):
         ts = datetime.datetime.now().strftime("%y%m%d-%H%M%S")
-        if full:
+        if full: # 已不适用，待调整
             path = f"{base_path}/suites/{int(time.time())}"
             os.makedirs(path, exist_ok=True)
             with open(f"{path}/od.txt", "w") as f:
@@ -38,22 +39,22 @@ class BiteSuite(BaseModel):
                         f.write(f"scope[{idx}]: {capture}\n")
                         capture.image.save(f"{path}/scope_{idx}.jpg")
 
-                if self.audio_chunks:
-                    torchaudio.save(f"{path}/{idx}_{n}.ogg", self.audio_chunks, sample_rate, )
+                if self.audio_chunks is not None:
+                    torchaudio.save(f"{path}/{idx}_{self.seconds}.ogg", self.audio_chunks(), sample_rate, )
                 if self.result_capture:
                     f.write(f"result: {self.result_capture}\n")
                     self.result_capture.image.save(f"{path}/result.jpg")
         elif self.result_capture is None:  # miss bite
-            if self.audio_chunks:
+            if self.audio_chunks is not None:
                 _path = f"datasets/miss-bite/{ts}"
                 logger.warning("save miss bite wav to {}", _path)
-                torchaudio.save(f"{_path}_16_miss.ogg", self.audio_chunks, sample_rate)
+                torchaudio.save(f"{_path}_16_miss.ogg", self.audio_chunks.cpu(), sample_rate)
         elif self.result_capture.miss > 0.5:  # wrong bite
-            if self.audio_chunks:
+            if self.audio_chunks is not None:
                 ts = datetime.datetime.now().strftime("%y%m%d-%H%M%S")
-                _path = f"{base_path}/wrong-bite/{ts}_zero.ogg"
+                _path = f"datasets/wrong-bite/{ts}_{self.seconds}.ogg"
                 logger.info("save wrong bite wav: {}", _path)
-                torchaudio.save(_path, self.audio_chunks, sample_rate)
+                torchaudio.save(_path, self.audio_chunks.cpu(), sample_rate)
 
 
 class SuiteSaveOption(str, Enum):
@@ -88,7 +89,7 @@ def effective_scope(
 def task(mouse: MouseController, cast_retry: int, valid_conf: float, mouse_start: MouseButton, mouse_end: MouseButton,
          sound_model, listen_seconds: int, window: int,
          save_suite: SuiteSaveOption):
-    suite = BiteSuite(scope_captures=[], audio_chunks=[])
+    suite = BiteSuite(scope_captures=[], audio_chunks=None)
     # 甩杆至“有效交互范围”
     capture = effective_scope(suite, mouse, retry=cast_retry, mouse_start=mouse_start, valid_conf=valid_conf)
     if capture is None:
@@ -98,10 +99,11 @@ def task(mouse: MouseController, cast_retry: int, valid_conf: float, mouse_start
 
     logger.info("🎤 listen for water splash", enqueue=True)
 
-    pred, audio_tensor = sound_infer.stream(sound_model, window=window, maxlen=listen_seconds)
+    pred, audio_tensor, length = sound_infer.stream(sound_model, window=window, maxlen=listen_seconds)
 
     caught = True if pred == "bite" else False
     suite.audio_chunks = audio_tensor
+    suite.seconds = length
 
     if pred == "bite":
         logger.info("🐟 event bite detected, finish", pred, enqueue=True)

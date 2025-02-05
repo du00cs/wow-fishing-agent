@@ -95,8 +95,8 @@ def stream(
                 logger.info("audio chunk infer [{:02d}{:4d}ms] => {} ({:.3f})", i, int(1000 * (time.time() - start)),
                             pred, prob)
                 if pred == "bite":
-                    return "bite", None
-        return "other", buffer
+                    return "bite", buffer[:, :(i + 1) * chunk], i + 1
+        return "other", buffer, None
 
 
 def bite_as_negative(
