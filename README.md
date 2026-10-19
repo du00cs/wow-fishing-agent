@@ -2,6 +2,8 @@
 
 > The main target is Chinese users, if you are interested, please use the translation software, I am too lazy to write English introduction.
 
+**由于魔兽世界增强了键盘输入限制，本项目使用的pynput已无法工作，图像和声音的功能都能正常工作，但是键盘和鼠标输入不行了，略尴尬。如果有可以输入的方法还麻烦私信。**
+
 本项目旨在通过非侵入的方式，用机器学习的方式来做一个自动钓鱼的工具。
 
 # 0. 更新
